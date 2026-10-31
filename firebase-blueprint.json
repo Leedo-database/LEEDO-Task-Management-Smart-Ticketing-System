@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "employees": {
+      "title": "Employee Master Records",
+      "description": "Master personnel records for LEEDO staff across all 9 locations",
+      "type": "object",
+      "properties": {
+        "eid": { "type": "string", "description": "Unique Employee ID (e.g. 1001, 1002, 1057)" },
+        "name": { "type": "string", "description": "Full legal name" },
+        "designation": { "type": "string", "description": "Official job designation" },
+        "department": { "type": "string", "description": "Admin & Finance, Program & Operation, Partnership" },
+        "mobile": { "type": "string", "description": "Contact mobile phone number" },
+        "location": { "type": "string", "description": "Assigned base branch or shelter home" },
+        "officialEmail": { "type": "string", "description": "Official @leedobd.org email address" },
+        "personalEmail": { "type": "string", "description": "Alternate or personal contact email" },
+        "role": { "type": "string", "enum": ["admin", "executive_director", "hr_manager", "supervisor", "team_leader", "employee", "auditor"] },
+        "employmentStatus": { "type": "string", "enum": ["Active", "Inactive", "Archived", "Pending Verification"] },
+        "provisioningStatus": { "type": "string", "enum": ["Active", "Provisioning Pending", "Not Provisioned", "Deactivated"] },
+        "mustChangePassword": { "type": "boolean" },
+        "supervisorEid": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["eid", "name", "designation", "department", "location", "role"]
+    },
+    "tasks": {
+      "title": "Tasks",
+      "description": "Organizational work orders, field tasks, and operational assignments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique Task ID (e.g. TSK-1001)" },
+        "title": { "type": "string", "description": "Task concise title" },
+        "description": { "type": "string", "description": "Detailed task description" },
+        "category": { "type": "string", "description": "Work category" },
+        "department": { "type": "string", "description": "Assigned department" },
+        "location": { "type": "string", "description": "Operational field location" },
+        "priority": { "type": "string", "enum": ["Urgent", "High", "Medium", "Low"] },
+        "status": { "type": "string", "enum": ["Draft", "Submitted", "Open", "Assigned", "In Progress", "Blocked", "Submitted for Review", "Revision Required", "Approved", "Completed", "Closed", "Cancelled"] },
+        "assignedToEid": { "type": "string", "description": "EID of the assigned employee" },
+        "supervisorEid": { "type": "string", "description": "EID of responsible supervisor" },
+        "createdByEid": { "type": "string", "description": "EID of task creator" },
+        "dueDate": { "type": "string", "description": "Target completion date" },
+        "progressPercentage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "subtasks": { "type": "array" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "department", "location", "priority", "status", "assignedToEid"]
+    },
+    "tickets": {
+      "title": "Smart Tickets",
+      "description": "Internal requests, IT support, logistics, and facility issues",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique Ticket ID (e.g. TKT-2001)" },
+        "subject": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Urgent", "High", "Medium", "Low"] },
+        "status": { "type": "string", "enum": ["New", "Triaged", "Assigned", "In Progress", "Resolved", "Closed"] },
+        "requesterEid": { "type": "string" },
+        "assignedToEid": { "type": "string" },
+        "location": { "type": "string" },
+        "department": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "subject", "category", "status", "requesterEid"]
+    },
+    "auditLogs": {
+      "title": "Accountability & Audit Logs",
+      "description": "Immutable audit events recording task lifecycle, approvals, and credential changes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "actorEid": { "type": "string" },
+        "actorName": { "type": "string" },
+        "action": { "type": "string" },
+        "targetType": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "actorEid", "action", "timestamp"]
+    }
+  }
+}

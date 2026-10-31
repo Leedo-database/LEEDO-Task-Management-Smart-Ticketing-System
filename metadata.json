@@ -1,0 +1,6 @@
+{
+  "name": "LEEDO Task Management & Smart Ticketing System",
+  "description": "Comprehensive task management, smart internal ticketing, employee database, and workflow oversight for LEEDO Bangladesh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

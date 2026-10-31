@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Group Tasks Collection: Collaborative team tasks with updates and milestone progress
+    match /groupTasks/{groupTaskId} {
+      allow read, write: if true;
+    }
+
+    // Individual Tasks Collection
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
+
+    // Employees Master Collection
+    match /employees/{employeeId} {
+      allow read, write: if true;
+    }
+
+    // Tickets Collection
+    match /tickets/{ticketId} {
+      allow read, write: if true;
+    }
+
+    // Audit Logs: Append-only
+    match /auditLogs/{logId} {
+      allow read, write: if true;
+    }
+
+    // System Settings
+    match /systemSettings/{settingId} {
+      allow read, write: if true;
+    }
+  }
+}
+
