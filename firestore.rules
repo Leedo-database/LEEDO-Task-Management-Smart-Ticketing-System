@@ -31,6 +31,16 @@ service cloud.firestore {
     match /systemSettings/{settingId} {
       allow read, write: if true;
     }
+
+    // Meeting Action Points
+    match /meetings/{meetingId} {
+      allow read, write: if true;
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
   }
 }
 

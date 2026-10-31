@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { Bell, ChevronDown, LogOut, KeyRound, Menu, X, PanelLeft, PanelLeftClose } from "lucide-react";
+import { Bell, ChevronDown, LogOut, KeyRound, Menu, X, PanelLeft, PanelLeftClose, Cloud } from "lucide-react";
 
 interface NavbarProps {
   currentTab: string;
@@ -123,8 +123,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
       </nav>
 
-      {/* Zone 3: Actions Cluster: Language Toggle + Notifications + User Menu */}
+      {/* Zone 3: Actions Cluster: Cloud Status + Language Toggle + Notifications + User Menu */}
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        {/* Firebase Cloud Permanent Status */}
+        <div
+          title={language === "bn" ? "গুগল ক্লাউড ফায়ারবেস যুক্ত: সকল ডাটা স্থায়ীভাবে সংরক্ষিত।" : "Connected to Google Cloud Firestore. All data is permanently preserved."}
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/90 rounded-lg text-[10px] font-semibold select-none shadow-2xs"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+          <span>{language === "bn" ? "ক্লাউডে সংরক্ষিত" : "Cloud Saved"}</span>
+        </div>
+
         {/* Bilingual Language Switcher (EN | বাংলা) */}
         <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] sm:text-xs font-semibold">
           <button

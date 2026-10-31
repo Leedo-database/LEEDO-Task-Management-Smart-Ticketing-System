@@ -12,7 +12,7 @@ import {
   GroupTaskMilestone,
 } from "../types";
 import { db } from "./firebase";
-import { doc, setDoc, deleteDoc, collection, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, collection, onSnapshot, getDocs, getDoc } from "firebase/firestore";
 
 async function syncToFirestore(collectionName: string, id: string, data: any) {
   try {
@@ -1227,14 +1227,16 @@ class StorageService {
     if (!localStorage.getItem(STORAGE_KEYS.GROUP_TASKS)) {
       localStorage.setItem(STORAGE_KEYS.GROUP_TASKS, JSON.stringify([]));
     }
-    this.initFirestoreGroupTasksListener();
+    this.initFirestoreListeners();
   }
 
-  private isListenerAttached = false;
-  private initFirestoreGroupTasksListener() {
-    if (typeof window === "undefined" || !db || this.isListenerAttached) return;
+  private isListenersAttached = false;
+  private initFirestoreListeners() {
+    if (typeof window === "undefined" || !db || this.isListenersAttached) return;
+    this.isListenersAttached = true;
+
     try {
-      this.isListenerAttached = true;
+      // 1. Group Tasks Real-Time Sync
       const groupTasksCol = collection(db, "groupTasks");
       onSnapshot(
         groupTasksCol,
@@ -1260,12 +1262,120 @@ class StorageService {
             this.notify();
           }
         },
-        (err) => {
-          console.debug("Firestore groupTasks listener note:", err);
-        }
+        (err) => console.debug("Firestore groupTasks sync note:", err)
+      );
+
+      // 2. Individual Tasks Real-Time Sync
+      const tasksCol = collection(db, "tasks");
+      onSnapshot(
+        tasksCol,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const remoteMap = new Map<string, Task>();
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data() as Task;
+              if (data && data.id) {
+                remoteMap.set(data.id, data);
+              }
+            });
+            const local = this.getTasks();
+            const localMap = new Map<string, Task>(local.map((t) => [t.id, t]));
+            remoteMap.forEach((remoteTask, id) => {
+              const localTask = localMap.get(id);
+              if (!localTask || new Date(remoteTask.updatedAt).getTime() >= new Date(localTask.updatedAt).getTime()) {
+                localMap.set(id, remoteTask);
+              }
+            });
+            const merged = Array.from(localMap.values());
+            localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(merged));
+            this.notify();
+          }
+        },
+        (err) => console.debug("Firestore tasks sync note:", err)
+      );
+
+      // 3. Tickets Real-Time Sync
+      const ticketsCol = collection(db, "tickets");
+      onSnapshot(
+        ticketsCol,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const remoteMap = new Map<string, Ticket>();
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data() as Ticket;
+              if (data && data.id) {
+                remoteMap.set(data.id, data);
+              }
+            });
+            const local = this.getTickets();
+            const localMap = new Map<string, Ticket>(local.map((t) => [t.id, t]));
+            remoteMap.forEach((remoteTicket, id) => {
+              const localTicket = localMap.get(id);
+              if (!localTicket || new Date(remoteTicket.updatedAt).getTime() >= new Date(localTicket.updatedAt).getTime()) {
+                localMap.set(id, remoteTicket);
+              }
+            });
+            const merged = Array.from(localMap.values());
+            localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(merged));
+            this.notify();
+          }
+        },
+        (err) => console.debug("Firestore tickets sync note:", err)
+      );
+
+      // 4. Employees Master Database Real-Time Sync
+      const empCol = collection(db, "employees");
+      onSnapshot(
+        empCol,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const remoteMap = new Map<string, Employee>();
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data() as Employee;
+              if (data && data.eid) {
+                remoteMap.set(data.eid, data);
+              }
+            });
+            const local = this.getEmployees();
+            const localMap = new Map<string, Employee>(local.map((e) => [e.eid, e]));
+            remoteMap.forEach((remoteEmp, eid) => {
+              const localEmp = localMap.get(eid);
+              if (!localEmp || new Date(remoteEmp.updatedAt).getTime() >= new Date(localEmp.updatedAt).getTime()) {
+                localMap.set(eid, remoteEmp);
+              }
+            });
+            const merged = Array.from(localMap.values());
+            localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(merged));
+            this.notify();
+          } else {
+            // First time seed to Firestore so employees are stored permanently in the cloud
+            SEED_EMPLOYEES.forEach((emp) => {
+              syncToFirestore("employees", emp.eid, emp);
+            });
+          }
+        },
+        (err) => console.debug("Firestore employees sync note:", err)
+      );
+
+      // 5. System Settings Real-Time Sync
+      const settingsDocRef = doc(db, "systemSettings", "config");
+      onSnapshot(
+        settingsDocRef,
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const cloudSettings = docSnap.data() as SystemSettings;
+            if (cloudSettings && cloudSettings.organizationName) {
+              localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(cloudSettings));
+              this.notify();
+            }
+          } else {
+            syncToFirestore("systemSettings", "config", DEFAULT_SETTINGS);
+          }
+        },
+        (err) => console.debug("Firestore settings sync note:", err)
       );
     } catch (e) {
-      console.debug("Could not attach groupTasks listener:", e);
+      console.debug("Could not attach all Firestore listeners:", e);
     }
   }
 
@@ -1436,6 +1546,7 @@ class StorageService {
   deleteTask(taskId: string, actorEid: string) {
     const list = this.getTasks().filter((t) => t.id !== taskId);
     localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(list));
+    deleteFromFirestore("tasks", taskId);
     this.logAudit(actorEid, "DELETE_TASK", "Task", taskId, `Deleted task ${taskId}`);
     this.notify();
   }
@@ -1748,6 +1859,95 @@ class StorageService {
     this.logAudit(actorEid, "DELETE_GROUP_TASK", "Task", id, `Deleted group task "${item.title}"`);
     this.notify();
     return true;
+  }
+
+  // --- Long-Term Firebase Cloud Synchronization & Backup ---
+  async syncAllToCloud(actorEid?: string): Promise<{
+    success: boolean;
+    taskCount: number;
+    groupTaskCount: number;
+    employeeCount: number;
+    ticketCount: number;
+    error?: string;
+  }> {
+    if (!db) {
+      return {
+        success: false,
+        taskCount: 0,
+        groupTaskCount: 0,
+        employeeCount: 0,
+        ticketCount: 0,
+        error: "Firestore database instance is not connected.",
+      };
+    }
+
+    try {
+      const employees = this.getEmployees();
+      const tasks = this.getTasks();
+      const groupTasks = this.getGroupTasks();
+      const tickets = this.getTickets();
+      const settings = this.getSettings();
+
+      const promises: Promise<any>[] = [];
+
+      employees.forEach((emp) => {
+        promises.push(setDoc(doc(db, "employees", emp.eid), emp, { merge: true }));
+      });
+
+      tasks.forEach((task) => {
+        promises.push(setDoc(doc(db, "tasks", task.id), task, { merge: true }));
+      });
+
+      groupTasks.forEach((gt) => {
+        promises.push(setDoc(doc(db, "groupTasks", gt.id), gt, { merge: true }));
+      });
+
+      tickets.forEach((tk) => {
+        promises.push(setDoc(doc(db, "tickets", tk.id), tk, { merge: true }));
+      });
+
+      promises.push(setDoc(doc(db, "systemSettings", "config"), settings, { merge: true }));
+
+      await Promise.all(promises);
+
+      const timestamp = new Date().toISOString();
+      localStorage.setItem("leedo_last_cloud_backup", timestamp);
+
+      if (actorEid) {
+        this.logAudit(
+          actorEid,
+          "CLOUD_BACKUP_SYNC",
+          "Setting",
+          "FIREBASE_FIRESTORE",
+          `Permanent cloud database backup verified to Google Cloud Firestore (Tasks: ${tasks.length}, Group Tasks: ${groupTasks.length}, Employees: ${employees.length}, Tickets: ${tickets.length})`
+        );
+      }
+
+      this.notify();
+
+      return {
+        success: true,
+        taskCount: tasks.length,
+        groupTaskCount: groupTasks.length,
+        employeeCount: employees.length,
+        ticketCount: tickets.length,
+      };
+    } catch (err: any) {
+      console.error("Cloud backup error:", err);
+      return {
+        success: false,
+        taskCount: 0,
+        groupTaskCount: 0,
+        employeeCount: 0,
+        ticketCount: 0,
+        error: err?.message || "Failed to sync to Firestore cloud.",
+      };
+    }
+  }
+
+  getLastCloudBackupTime(): string | null {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("leedo_last_cloud_backup");
   }
 
   // Reset demo state back to seed

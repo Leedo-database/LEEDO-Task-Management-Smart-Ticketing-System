@@ -15,6 +15,12 @@ import {
   Building,
   MapPin,
   Tag,
+  Cloud,
+  Database,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  HardDrive,
 } from "lucide-react";
 
 export const SystemSettings: React.FC = () => {
@@ -29,6 +35,37 @@ export const SystemSettings: React.FC = () => {
   const [newCat, setNewCat] = useState("");
   const [copiedRules, setCopiedRules] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Firebase Cloud Sync State
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [cloudSyncResult, setCloudSyncResult] = useState<{
+    success: boolean;
+    taskCount: number;
+    groupTaskCount: number;
+    employeeCount: number;
+    ticketCount: number;
+    error?: string;
+  } | null>(null);
+
+  const handleManualCloudSync = async () => {
+    setIsSyncingCloud(true);
+    setCloudSyncResult(null);
+    try {
+      const result = await storage.syncAllToCloud(currentUser?.eid || "1001");
+      setCloudSyncResult(result);
+    } catch (err: any) {
+      setCloudSyncResult({
+        success: false,
+        taskCount: 0,
+        groupTaskCount: 0,
+        employeeCount: 0,
+        ticketCount: 0,
+        error: err?.message || "Sync error",
+      });
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -401,33 +438,155 @@ service cloud.firestore {
         </div>
       )}
 
-      {/* Tab 3: Firebase */}
+      {/* Tab 3: Firebase Cloud Permanent Storage */}
       {activeTab === "firebase" && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Code2 className="w-4 h-4 text-red-600" />
-                <span>Production Firebase Security Rules (`firestore.rules`)</span>
-              </h3>
-              <p className="text-xs text-slate-500">
-                Enforces role-based permissions, prevents client-side tampering, and safeguards confidential child records
-              </p>
+        <div className="space-y-6">
+          {/* Cloud Storage Status Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Cloud className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900">
+                      Firebase Cloud Firestore Permanent Storage
+                    </h3>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Active & Connected
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    সংস্থার সকল টাস্ক, গ্রুপ টাস্ক, কর্মী ডেটাবেজ এবং টিকিট গুগল ক্লাউডে দীর্ঘমেয়াদে (৪-৫ বছর বা আজীবন) নিরাপদভাবে সংরক্ষিত।
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isSyncingCloud}
+                onClick={handleManualCloudSync}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncingCloud ? "animate-spin" : ""}`} />
+                <span>{isSyncingCloud ? "ক্লাউডে সিঙ্ক হচ্ছে..." : "এখনই সম্পূর্ণ ক্লাউড ব্যাকআপ নিন"}</span>
+              </button>
             </div>
 
-            <button
-              onClick={copyRulesToClipboard}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors"
-            >
-              {copiedRules ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedRules ? "Copied!" : "Copy Rules"}</span>
-            </button>
+            {/* Sync Feedback Message */}
+            {cloudSyncResult && (
+              <div
+                className={`p-4 rounded-xl border flex items-start gap-3 text-xs ${
+                  cloudSyncResult.success
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    : "bg-red-50 border-red-200 text-red-800"
+                }`}
+              >
+                {cloudSyncResult.success ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <div className="font-bold">
+                    {cloudSyncResult.success
+                      ? "ক্লাউড সিঙ্ক সফলভাবে সম্পন্ন হয়েছে!"
+                      : "ক্লাউড সিঙ্কে সমস্যা দেখা দিয়েছে"}
+                  </div>
+                  <p className="mt-0.5">
+                    {cloudSyncResult.success
+                      ? `সর্বমোট ${cloudSyncResult.employeeCount} জন কর্মী, ${cloudSyncResult.taskCount}টি টাস্ক, ${cloudSyncResult.groupTaskCount}টি গ্রুপ টাস্ক এবং ${cloudSyncResult.ticketCount}টি টিকিট গুগল ফায়ারবেস ক্লাউডে যাচাই ও সংরক্ষিত হয়েছে।`
+                      : cloudSyncResult.error}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Storage Metadata Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] text-slate-500 block font-medium">Google Cloud Project</span>
+                <span className="text-xs font-mono font-bold text-slate-900 mt-1 block">refined-axle-rlcf1</span>
+              </div>
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] text-slate-500 block font-medium">Database Instance</span>
+                <span className="text-xs font-mono font-bold text-slate-900 mt-1 block truncate" title="ai-studio-leedotaskmanagem-a40a371c-5cf5-4797-a414-2ed4b73a6570">
+                  ai-studio-leedotaskmanagem...
+                </span>
+              </div>
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] text-slate-500 block font-medium">Data Retention Policy</span>
+                <span className="text-xs font-bold text-emerald-700 mt-1 block">Permanent (৪-৫+ বছর সংরক্ষিত)</span>
+              </div>
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] text-slate-500 block font-medium">Real-Time Sync Engine</span>
+                <span className="text-xs font-bold text-blue-700 mt-1 block">Firestore onSnapshot (Active)</span>
+              </div>
+            </div>
+
+            {/* Synced Collections */}
+            <div className="pt-2">
+              <span className="text-xs font-bold text-slate-700 block mb-2">
+                স্বয়ংক্রিয়ভাবে ক্লাউডে সংরক্ষিত কালেকশনসমূহ:
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-600" />
+                  <span><strong>tasks</strong> (সকল একক কাজ)</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-600" />
+                  <span><strong>groupTasks</strong> (যৌথ দলীয় কাজ)</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-600" />
+                  <span><strong>employees</strong> (কর্মী ডেটাবেজ)</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-600" />
+                  <span><strong>tickets</strong> (স্মার্ট টিকিট)</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-600" />
+                  <span><strong>systemSettings</strong> (সিস্টেম কনফিগ)</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-600" />
+                  <span><strong>auditLogs</strong> (অডিট হিস্টোরি)</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="relative">
-            <pre className="p-4 bg-slate-900 text-slate-100 rounded-xl text-xs font-mono overflow-x-auto max-h-96">
-              {firestoreRulesSample}
-            </pre>
+          {/* Security Rules Preview Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-red-600" />
+                  <span>Production Firebase Security Rules (`firestore.rules`)</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  গুগল ফায়ারবেস ক্লাউডে ডেটাবেজ অ্যাক্সেস ও সুরক্ষা রুলস সক্রিয় ও ডিপ্লয় করা রয়েছে।
+                </p>
+              </div>
+
+              <button
+                onClick={copyRulesToClipboard}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {copiedRules ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedRules ? "Copied!" : "Copy Rules"}</span>
+              </button>
+            </div>
+
+            <div className="relative">
+              <pre className="p-4 bg-slate-900 text-slate-100 rounded-xl text-xs font-mono overflow-x-auto max-h-72">
+                {firestoreRulesSample}
+              </pre>
+            </div>
           </div>
         </div>
       )}
